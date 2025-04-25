@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+whisper = "*"
+torchaudio = "*"
+fastapi = "*"
+uvicorn = "*"
+python-multipart = "*"
+faster-whisper = "*"
+redis = "*"
+watchdog = "*"
+huggingface-hub = "*"
+transformers = "*"
+sentencepiece = "*"
+langdetect = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.2"
+
+[scripts]
+start_receiver = "uvicorn src.blerb_receiver:app --reload --port 8005"
+start_transcriber = "python src/transcriber_worker.py"
