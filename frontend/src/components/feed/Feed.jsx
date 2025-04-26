@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show, For } from "solid-js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -9,18 +9,23 @@ import Message from '@components/message/Message';
 export default function Feed() {
     dayjs.extend(relativeTime);
 
-
     const [lines, setLines] = createSignal([]);
-
     let socket;
+    let transcriptLogRef;
 
     onMount(() => {
         socket = new WebSocket("ws://localhost:8006/ws/transcript");
 
         socket.onmessage = (event) => {
             const incoming = JSON.parse(event.data);
+
+            if (!transcriptLogRef) return;
+
+            const isAtBottom =
+                transcriptLogRef.scrollHeight - transcriptLogRef.scrollTop <=
+                transcriptLogRef.clientHeight + 10; // small padding
+
             setLines(prev => {
-                // Try to replace a previous line from the same speaker with the same base timestamp
                 const index = prev.findIndex(line =>
                     line.speaker_id === incoming.speaker_id &&
                     line.start_timestamp === incoming.start_timestamp
@@ -34,8 +39,16 @@ export default function Feed() {
                     return [...prev, incoming].sort((a, b) => a.start_timestamp - b.start_timestamp);
                 }
             });
-        };
 
+            requestAnimationFrame(() => {
+                if (isAtBottom && transcriptLogRef) {
+                    transcriptLogRef.scrollTo({
+                        top: transcriptLogRef.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        };
 
         socket.onopen = () => {
             console.log("📡 WebSocket connected.");
@@ -50,23 +63,22 @@ export default function Feed() {
         };
 
         socket.onerror = (err) => {
-            console.error("⚠️ WebSocket error (no details, check onclose or server logs):", err);
+            console.error("⚠️ WebSocket error:", err);
         };
-
-        console.log(lines)
     });
 
     onCleanup(() => {
         socket?.close();
     });
+
     return (
         <div class="main-container">
             <div class="main-content">
                 {/* future controls or gameplay content */}
             </div>
-            <div class="transcript-log">
+            <div class="transcript-log" ref={el => transcriptLogRef = el}>
                 <Show when={lines().length === 0} fallback={
-                    <For each={[...lines()].sort((a, b) => a.start_timestamp - b.start_timestamp)}>
+                    <For each={lines()}>
                         {(line) => (
                             <div class="transcript-line">
                                 <Message line={line} />
@@ -79,5 +91,4 @@ export default function Feed() {
             </div>
         </div>
     );
-
 }

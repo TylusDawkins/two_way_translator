@@ -58,7 +58,7 @@ try:
         speaker_id = None
         timestamp = None
         text = None
-        text_error = None
+        transcription_error = None
         translation = None
         translation_error = None
         src_lang = None
@@ -110,7 +110,7 @@ try:
                 text = " ".join(seg.text for seg in segments).strip()
                 if not contains_arabic(text):
                     print("❌ No Arabic text ")
-                    text_error = f"ERROR: Transcription returned non Arabic script"
+                    transcription_error = f"ERROR: Transcription returned non Arabic script"
                 if not text:
                     print("❌ No text detected, skipping translation.")
                     continue
@@ -168,7 +168,7 @@ try:
             "speaker_id":      speaker_id,
             "start_timestamp": timestamp,
             "text":            text,
-            "text_error": text_error,
+            "transcription_error": transcription_error,
             "translation":     translation or "[Translation failed]",
             "translation_error": translation_error,
             "language":     src_lang,

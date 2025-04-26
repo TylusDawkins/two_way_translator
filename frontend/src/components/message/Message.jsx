@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -28,15 +28,28 @@ export default function TranscriptLine(props) {
         <span class="player-id">{line.speaker_id}</span>
       </div>
 
+      {/* Transcript Text Box */}
       <div class="line-content original">
+        <Show when={line.text_error}>
+          <div class="error">
+            <span class="label">Transcription Error:</span> {line.text_error}
+          </div>
+        </Show>
         {line.text}
       </div>
 
-      <Show when={line.translation && line.translation !== line.text}>
+      {/* Translation Box */}
+      <Show when={line.translation || line.translation_error}>
         <div class="line-content translation">
+          <Show when={line.translation_error}>
+            <div class="error">
+              <span class="label">Translation Error:</span> {line.translation_error}
+            </div>
+          </Show>
           <span class="label">Translated:</span> {line.translation}
         </div>
       </Show>
+
     </div>
   );
 }

@@ -8,6 +8,9 @@ body {
     backdrop-filter: blur(1px); /* optional */
     box-shadow: -4px 0 10px rgba(0, 0, 0, 0.15);
     border-left: 2px solid #a98e6f;
+    height:85vh;
+    width:50vw;
+    overflow-y: scroll;
   }
   
   .transcript-line {
