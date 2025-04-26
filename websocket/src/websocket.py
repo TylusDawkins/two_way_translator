@@ -30,12 +30,19 @@ def ping():
 from fastapi.responses import JSONResponse
 
 @app.get("/admin/clear-transcripts")
-def clear_transcripts():
+async def clear_transcripts():
     deleted_keys = []
 
-    for key in redis_client.scan_iter("translator:translations:*"):
+    for key in redis_client.scan_iter("translator:*"):
         redis_client.delete(key)
         deleted_keys.append(key)
+
+    # Notify all connected clients
+    for client in clients.copy():
+        try:
+            await client.send_json({"type": "clear"})
+        except Exception:
+            clients.remove(client)
 
     return JSONResponse({
         "status": "cleared",

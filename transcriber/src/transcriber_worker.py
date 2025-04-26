@@ -29,6 +29,9 @@ whisper_model = WhisperModel(
     compute_type="float16" if device == "cuda" else "int8"
 )
 
+# ─── Model Variables ─────────────────────────────────────────────────────
+beam_size = 20
+
 # ─── NLLB Translator Setup ───────────────────────────────────────────────────
 tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-600M")
 translator = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-600M")
@@ -44,9 +47,21 @@ ISO2NLLB = {
 
 print("🧠 Whisper transcriber ready.  🔄 Translator ready.")
 
+
+#Helper Functions
+def contains_arabic(text):
+    return any('\u0600' <= c <= '\u06FF' for c in text)
+
 # ─── Main Loop ───────────────────────────────────────────────────────────────
 try:
     while True:
+        speaker_id = None
+        timestamp = None
+        text = None
+        text_error = None
+        translation = None
+        translation_error = None
+        src_lang = None
         item = redis_client.lpop("translator:queue")
         if not item:
             time.sleep(0.5)
@@ -65,19 +80,43 @@ try:
             segments, info = whisper_model.transcribe(
                 file_path,
                 language=None,  # required to get language_probs
-                beam_size=5,
+                beam_size=beam_size,
                 task="transcribe",
                 vad_filter=True,
-                word_timestamps=False
+                word_timestamps=False,
+                multilingual=True
             )
 
             text = " ".join(seg.text for seg in segments).strip()
+            if not text:
+                print("❌ No text detected, skipping translation.")
+                continue
             lang = info.language
             lang_conf = info.language_probability
             # lang_conf = info.language_probs.get(lang, 0.0) if info.language_probs else 0.0
-
             print(f"🧠 Detected language: {lang} ({lang_conf:.2%} confidence)")
             print(f"📜 Transcript: {text}")
+            if (lang == "en" and lang_conf < 0.9) or (lang not in ("en", "ar")):
+                print("⚠️ Low confidence in detected language, falling back to Arabic model.")
+                segments, info = whisper_model.transcribe(
+                    file_path,
+                    language="ar",
+                    beam_size=beam_size,
+                    task="transcribe",
+                    vad_filter=True,
+                    word_timestamps=True,
+                    multilingual=True
+                )
+                text = " ".join(seg.text for seg in segments).strip()
+                if not contains_arabic(text):
+                    print("❌ No Arabic text ")
+                    text_error = f"ERROR: Transcription returned non Arabic script"
+                if not text:
+                    print("❌ No text detected, skipping translation.")
+                    continue
+                lang = info.language
+                lang_conf = info.language_probability
+                print(f"🧠 Fallback Detected language: {lang} ({lang_conf:.2%} confidence)")
             src_lang = ISO2NLLB.get(lang, None)
 
 
@@ -114,7 +153,12 @@ try:
                     max_length=512
                 )
             translation = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
-            print(f"🔤 Translation: {translation}")
+            translation = translation.strip()
+            if not translation:
+                print("❌ Translation failed.")
+                translation_error = "ERROR: Translation returned empty string"
+            else:
+                print(f"✅ Translation successful: {translation}")
 
         elapsed = round(time.perf_counter() - start_time, 2)
         print(f"✅ Done in {elapsed}s: {speaker_id}")
@@ -124,9 +168,10 @@ try:
             "speaker_id":      speaker_id,
             "start_timestamp": timestamp,
             "text":            text,
-            "translation":     translation,
-            "source_lang":     src_lang,
-            "target_lang":     tgt_lang
+            "text_error": text_error,
+            "translation":     translation or "[Translation failed]",
+            "translation_error": translation_error,
+            "language":     src_lang,
         }
         redis_client.rpush("translator:unmerged", json.dumps(result))
 
