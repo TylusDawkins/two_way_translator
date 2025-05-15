@@ -1,0 +1,38 @@
+body {
+    background-size: cover;
+    -repeat: repeat;
+    font-family: 'Georgia', serif;
+  }
+  
+  .transcript-log {
+    backdrop-filter: blur(1px); /* optional */
+    box-shadow: -4px 0 10px rgba(0, 0, 0, 0.15);
+    border-left: 2px solid #a98e6f;
+    height:85vh;
+    width:50vw;
+    overflow-y: scroll;
+  }
+  
+  .transcript-line {
+    border-radius: 10px;
+    border: 1px solid #c4b494;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 2px 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* TIMESTAMP STYLE */
+  .timestamp {
+    color: #867c6a;
+    font-size: 0.85em;
+    margin-right: 0.5em;
+    display: inline-block;
+  }
+  
+  /* NAME / SPEAKER STYLE */
+  .transcript-line strong {
+    font-weight: bold;
+    color: #3b2f20;
+    margin-right: 0.5em;
+  }
+  

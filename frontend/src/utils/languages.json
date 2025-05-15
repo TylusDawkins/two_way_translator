@@ -1,0 +1,15 @@
+[
+  { "code": "en", "label": "English" },
+  { "code": "zh", "label": "Chinese" },
+  { "code": "de", "label": "German" },
+  { "code": "es", "label": "Spanish" },
+  { "code": "fr", "label": "French" },
+  { "code": "hi", "label": "Hindi" },
+  { "code": "ar", "label": "Arabic" },
+  { "code": "bn", "label": "Bengali" },
+  { "code": "ru", "label": "Russian" },
+  { "code": "pt", "label": "Portuguese" },
+  { "code": "ur", "label": "Urdu" },
+  { "code": "ja", "label": "Japanese" },
+  { "code": "ar", "label": "Arabic"}
+]
