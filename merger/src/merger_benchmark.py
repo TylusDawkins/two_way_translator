@@ -2,6 +2,8 @@ import time
 import json
 import redis
 
+# --------------------------- THIS WAS USED FOR EARLY TESTING ... RETAINED FOR FUTURE REFERENCE ---------------------------
+
 # Constants
 NUM_BLERBS = 1000
 MERGE_WINDOW_MS = 15000

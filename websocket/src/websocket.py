@@ -1,9 +1,10 @@
+'''WebSocket server for real-time updates using FastAPI and Redis.'''
 import asyncio
-import json
 import hashlib
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
 from typing import List
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import redis
 
 app = FastAPI()
@@ -25,12 +26,13 @@ clients: List[WebSocket] = []
 
 @app.get("/ping")
 def ping():
+    '''Returns a simple "pong" response.'''
     return {"status": "pong"}
 
-from fastapi.responses import JSONResponse
 
 @app.get("/admin/clear-translations")
 async def clear_transcripts():
+    '''Clears all translation data from Redis and notifies connected clients.'''
     deleted_keys = []
 
     for key in redis_client.scan_iter("translator:*"):
@@ -53,13 +55,13 @@ async def clear_transcripts():
 
 @app.websocket("/ws/transcript")
 async def transcript_ws(websocket: WebSocket):
+    '''Handles WebSocket connections for real-time transcription updates.'''
     await websocket.accept()
     clients.append(websocket)
     print(f"🔌 Client connected. Total: {len(clients)}")
 
     try:
         content_hashes = {}  # Track last seen hash per key
-
         while True:
             await asyncio.sleep(0.5)
             keys = redis_client.keys("translator:transcription:*")

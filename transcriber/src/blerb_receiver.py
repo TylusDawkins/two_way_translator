@@ -1,11 +1,10 @@
-# blerb_receiver.py
+'''blerb_receiver.py'''
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import redis
 import uuid
 import os
-import time
 import json
 
 import ffmpeg  # add this to your imports at the top
@@ -38,7 +37,6 @@ async def upload_audio(
 
     raw_filename = f"{speaker_id}_{timestamp}_{unique_id}{extension}"
     raw_path = os.path.join(AUDIO_DIR, raw_filename)
-    
 
     print(f"📥 Received file: {raw_filename}")
     with open(raw_path, "wb") as f:
@@ -58,7 +56,7 @@ async def upload_audio(
     except ffmpeg.Error as e:
         print(f"❌ FFmpeg error:\n{e.stderr.decode()}")
         return JSONResponse({"error": "Audio conversion failed"}, status_code=500)
-   
+
     redis_client.rpush("translator:queue", json.dumps({
         "file_path": processed_path,
         "speaker_id": speaker_id,
