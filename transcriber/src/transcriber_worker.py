@@ -76,139 +76,147 @@ def contains_arabic(text):
 # ─── Main Loop ───────────────────────────────────────────────────────────────
 try:
     while True:
-        item = redis_client.lpop("translator:queue")
-        if not item:
-            time.sleep(0.5)
-            continue
+        # Get all session queues
+        session_queues = redis_client.keys("translator:queue:*")
+        
+        for queue in session_queues:
+            item = redis_client.lpop(queue)
+            if not item:
+                continue
 
-        payload = json.loads(item) 
-        print(payload)
-        filename = payload.get("filename")
-        speaker_id = payload.get("speaker_id")
-        timestamp = payload.get("timestamp")
-        prim_lang = payload.get("prim_lang")
-        fall_lang = payload.get("fall_lang")
+            payload = json.loads(item) 
+            print(payload)
+            filename = payload.get("filename")
+            speaker_id = payload.get("speaker_id")
+            session_id = payload.get("session_id")
+            timestamp = payload.get("timestamp")
+            prim_lang = payload.get("prim_lang")
+            fall_lang = payload.get("fall_lang")
 
-        # Construct full path using shared volume
-        file_path = os.path.join(AUDIO_DIR, filename)
+            # Construct full path using shared volume
+            file_path = os.path.join(AUDIO_DIR, filename)
 
-        print(f"\n🔄 Transcribing {file_path}")
-        print(f"Timestamp: {timestamp}")
-        print(f"Speaker ID: {speaker_id}")
-        print(f"Primary: {prim_lang}, Fallback: {fall_lang}")
-        start_time = time.perf_counter()
+            print(f"\n🔄 Transcribing {file_path}")
+            print(f"Session: {session_id}")
+            print(f"Timestamp: {timestamp}")
+            print(f"Speaker ID: {speaker_id}")
+            print(f"Primary: {prim_lang}, Fallback: {fall_lang}")
+            start_time = time.perf_counter()
 
-        TEXT = None
-        TEXT_ERROR = None
-        TRANSLATION = None
-        TRANSLATION_ERROR = None
-        SRC_LANG = None
-        LANG = None
-        LANG_CONF = None
+            TEXT = None
+            TEXT_ERROR = None
+            TRANSLATION = None
+            TRANSLATION_ERROR = None
+            SRC_LANG = None
+            LANG = None
+            LANG_CONF = None
 
-        try:
-            # Primary transcription attempt
-            # Try to let it process naturally, and if confidence is low fall back to default
-            print(f"🔠 Trying primary language: {prim_lang}")
-            segments, info = whisper_model.transcribe(
-                file_path,
-                language=None,
-                beam_size=BEAM_SIZE,
-                task="transcribe",
-                vad_filter=True,
-                word_timestamps=False,
-                multilingual=False,
-                temperature=0.7,
-                best_of=5
-            )
-            TEXT = " ".join(seg.text for seg in segments).strip()
-            LANG = info.language
-            LANG_CONF = info.language_probability
-            print(f"🧠 Detected: {LANG} ({LANG_CONF:.2%})")
-            print(f"📜 Transcript: {TEXT}")
-
-            # Determine fallback need
-            # Retry in primary lang
-
-            print(fall_lang)
-
-            fallback_needed = (
-                not TEXT or
-                LANG != prim_lang or
-                LANG_CONF < 0.9
-            ) and fall_lang != prim_lang
-
-            if fallback_needed:
-                print(f"⚠️ Fallback triggered. Retrying with {fall_lang}")
+            try:
+                # Primary transcription attempt
+                # Try to let it process naturally, and if confidence is low fall back to default
+                print(f"🔠 Trying primary language: {prim_lang}")
                 segments, info = whisper_model.transcribe(
                     file_path,
-                    language=fall_lang,
+                    language=None,
                     beam_size=BEAM_SIZE,
                     task="transcribe",
                     vad_filter=True,
                     word_timestamps=False,
-                    multilingual=False
+                    multilingual=False,
+                    temperature=0.7,
+                    best_of=5
                 )
                 TEXT = " ".join(seg.text for seg in segments).strip()
                 LANG = info.language
                 LANG_CONF = info.language_probability
-                print(f"📜 Fallback transcript: {TEXT}")
-                print(f"🧠 Fallback language: {LANG} ({LANG_CONF:.2%})")
-                if not TEXT:
-                    TEXT_ERROR = "ERROR: Fallback transcription returned empty string"
+                print(f"🧠 Detected: {LANG} ({LANG_CONF:.2%})")
+                print(f"📜 Transcript: {TEXT}")
 
-            SRC_LANG = ISO2NLLB.get(LANG)
+                # Determine fallback need
+                # Retry in primary lang
 
-        except Exception as e:
-            TEXT_ERROR = f"Transcription error: {e}"
-            print(f"❌ {TEXT_ERROR}")
-            TEXT, SRC_LANG = "", None
+                print(fall_lang)
 
-        finally:
-            if file_path and os.path.exists(file_path):
-                os.remove(file_path)
+                fallback_needed = (
+                    not TEXT or
+                    LANG != prim_lang or
+                    LANG_CONF < 0.9
+                ) and fall_lang != prim_lang
 
-        # — Translation —
-        if TEXT and SRC_LANG:
-            TGT_LANG = "eng_Latn" if SRC_LANG != "eng_Latn" else "arb_Arab"
-            print(f"🔄 Translating from {SRC_LANG} to {TGT_LANG}")
+                if fallback_needed:
+                    print(f"⚠️ Fallback triggered. Retrying with {fall_lang}")
+                    segments, info = whisper_model.transcribe(
+                        file_path,
+                        language=fall_lang,
+                        beam_size=BEAM_SIZE,
+                        task="transcribe",
+                        vad_filter=True,
+                        word_timestamps=False,
+                        multilingual=False
+                    )
+                    TEXT = " ".join(seg.text for seg in segments).strip()
+                    LANG = info.language
+                    LANG_CONF = info.language_probability
+                    print(f"📜 Fallback transcript: {TEXT}")
+                    print(f"🧠 Fallback language: {LANG} ({LANG_CONF:.2%})")
+                    if not TEXT:
+                        TEXT_ERROR = "ERROR: Fallback transcription returned empty string"
 
-            tokenizer.src_lang = SRC_LANG
-            tokenizer.tgt_lang = TGT_LANG
+                SRC_LANG = ISO2NLLB.get(LANG)
 
-            inputs = tokenizer(TEXT, return_tensors="pt", padding=True)
-            if DEVICE == "cuda":
-                inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+            except Exception as e:
+                TEXT_ERROR = f"Transcription error: {e}"
+                print(f"❌ {TEXT_ERROR}")
+                TEXT, SRC_LANG = "", None
 
-            with torch.no_grad():
-                outputs = translator.generate(
-                    **inputs,
-                    forced_bos_token_id=tokenizer.convert_tokens_to_ids(TGT_LANG),
-                    max_length=512
-                )
-            TRANSLATION = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0].strip()
-            if not TRANSLATION:
-                TRANSLATION_ERROR = "ERROR: Translation returned empty string"
-                print("❌ Translation failed.")
-            else:
-                print(f"✅ Translated text: {TRANSLATION}")
+            finally:
+                if file_path and os.path.exists(file_path):
+                    os.remove(file_path)
 
-        elapsed = round(time.perf_counter() - start_time, 2)
-        print(f"✅ Done in {elapsed}s: {speaker_id}")
+            # — Translation —
+            if TEXT and SRC_LANG:
+                TGT_LANG = "eng_Latn" if SRC_LANG != "eng_Latn" else "arb_Arab"
+                print(f"🔄 Translating from {SRC_LANG} to {TGT_LANG}")
 
-        result = {
-            "speaker_id": speaker_id,
-            "start_timestamp": timestamp,
-            "text": TEXT,
-            "text_error": TEXT_ERROR,
-            "translation": TRANSLATION or "[Translation failed]",
-            "translation_error": TRANSLATION_ERROR,
-            "language": SRC_LANG,
-            "raw_language": LANG,
-            "language_confidence": LANG_CONF,
-        }
+                tokenizer.src_lang = SRC_LANG
+                tokenizer.tgt_lang = TGT_LANG
 
-        redis_client.rpush("translator:unmerged", json.dumps(result))
+                inputs = tokenizer(TEXT, return_tensors="pt", padding=True)
+                if DEVICE == "cuda":
+                    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+
+                with torch.no_grad():
+                    outputs = translator.generate(
+                        **inputs,
+                        forced_bos_token_id=tokenizer.convert_tokens_to_ids(TGT_LANG),
+                        max_length=512
+                    )
+                TRANSLATION = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0].strip()
+                if not TRANSLATION:
+                    TRANSLATION_ERROR = "ERROR: Translation returned empty string"
+                    print("❌ Translation failed.")
+                else:
+                    print(f"✅ Translated text: {TRANSLATION}")
+
+            elapsed = round(time.perf_counter() - start_time, 2)
+            print(f"✅ Done in {elapsed}s: {speaker_id}")
+
+            result = {
+                "speaker_id": speaker_id,
+                "session_id": session_id,
+                "start_timestamp": timestamp,
+                "text": TEXT,
+                "text_error": TEXT_ERROR,
+                "translation": TRANSLATION or "[Translation failed]",
+                "translation_error": TRANSLATION_ERROR,
+                "language": SRC_LANG,
+                "raw_language": LANG,
+                "language_confidence": LANG_CONF,
+            }
+
+            redis_client.rpush(f"translator:unmerged:{session_id}", json.dumps(result))
+
+        time.sleep(0.5)  # Sleep if no work to do
 
 except KeyboardInterrupt:
     print("\n🛑 Received KeyboardInterrupt — shutting down gracefully.")

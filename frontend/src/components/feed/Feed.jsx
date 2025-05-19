@@ -2,6 +2,7 @@ import { createSignal, onCleanup, onMount, Show, For } from "solid-js";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import languages from "@utils/languages.json"; // or relative path if no alias
+import { useApp } from "@context/AppContext";
 
 import './feed.css'
 
@@ -11,13 +12,14 @@ export default function Feed() {
     dayjs.extend(relativeTime);
 
     const [lines, setLines] = createSignal([]);
+    const { sessionId } = useApp();
     const [primLang, setPrimLang] = createSignal("");
     const [fallLang, setFallLang] = createSignal("");
     let socket;
     let transcriptLogRef;
 
     onMount(() => {
-        socket = new WebSocket("ws://localhost:8006/ws/transcript");
+        socket = new WebSocket(`ws://localhost:8006/ws/transcript/${sessionId()}`);
 
         socket.onmessage = (event) => {
             const incoming = JSON.parse(event.data);
@@ -54,11 +56,11 @@ export default function Feed() {
         };
 
         socket.onopen = () => {
-            console.log("📡 WebSocket connected.");
+            console.log("📡 WebSocket connected to session:", sessionId());
         };
 
         socket.onclose = (event) => {
-            console.warn("🛑 WebSocket closed.", {
+            console.warn("🛑 WebSocket closed for session:", sessionId(), {
                 code: event.code,
                 reason: event.reason,
                 wasClean: event.wasClean
@@ -66,7 +68,7 @@ export default function Feed() {
         };
 
         socket.onerror = (err) => {
-            console.error("⚠️ WebSocket error:", err);
+            console.error("⚠️ WebSocket error for session:", sessionId(), err);
         };
     });
 

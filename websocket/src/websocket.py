@@ -1,7 +1,7 @@
 '''WebSocket server for real-time updates using FastAPI and Redis.'''
 import asyncio
 import hashlib
-from typing import List
+from typing import Dict, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +21,8 @@ app.add_middleware(
 # Redis setup
 redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
-# Track connected WebSocket clients
-clients: List[WebSocket] = []
+# Track connected WebSocket clients per session
+session_clients: Dict[str, List[WebSocket]] = {}
 
 @app.get("/ping")
 def ping():
@@ -39,12 +39,13 @@ async def clear_transcripts():
         redis_client.delete(key)
         deleted_keys.append(key)
 
-    # Notify all connected clients
-    for client in clients.copy():
-        try:
-            await client.send_json({"type": "clear"})
-        except Exception:
-            clients.remove(client)
+    # Notify all connected clients across all sessions
+    for clients in session_clients.values():
+        for client in clients.copy():
+            try:
+                await client.send_json({"type": "clear"})
+            except Exception:
+                clients.remove(client)
 
     return JSONResponse({
         "status": "cleared",
@@ -53,19 +54,26 @@ async def clear_transcripts():
     })
 
 
-@app.websocket("/ws/transcript")
-async def transcript_ws(websocket: WebSocket):
+@app.websocket("/ws/transcript/{session_id}")
+async def transcript_ws(websocket: WebSocket, session_id: str):
     '''Handles WebSocket connections for real-time transcription updates.'''
     await websocket.accept()
-    clients.append(websocket)
-    print(f"🔌 Client connected. Total: {len(clients)}")
+    
+    # Initialize session clients list if it doesn't exist
+    if session_id not in session_clients:
+        session_clients[session_id] = []
+    
+    session_clients[session_id].append(websocket)
+    print(f"🔌 Client connected to session {session_id}. Total clients: {len(session_clients[session_id])}")
 
     try:
         content_hashes = {}  # Track last seen hash per key
         while True:
             await asyncio.sleep(0.5)
-            keys = redis_client.keys("translator:transcription:*")
+            # Only look for keys matching this session
+            keys = redis_client.keys(f"translator:transcription:{session_id}:*")
             updated = []
+            
             for key in keys:
                 value = redis_client.get(key)
                 if not value:
@@ -78,23 +86,23 @@ async def transcript_ws(websocket: WebSocket):
 
             if updated:
                 alive_clients = []
-                for client in clients:
+                for client in session_clients[session_id]:
                     try:
                         for message in updated:
                             await client.send_text(message)
                         alive_clients.append(client)
                     except Exception as e:
-                        print(f"❌ Dropped a client: {e}")
-                clients[:] = alive_clients  # Replace with only live ones
+                        print(f"❌ Dropped a client from session {session_id}: {e}")
+                session_clients[session_id] = alive_clients  # Replace with only live ones
 
     except WebSocketDisconnect:
-        if websocket in clients:
-            clients.remove(websocket)
-        print(f"❌ Client disconnected. Remaining: {len(clients)}")
+        if websocket in session_clients[session_id]:
+            session_clients[session_id].remove(websocket)
+        print(f"❌ Client disconnected from session {session_id}. Remaining: {len(session_clients[session_id])}")
     except Exception as e:
-        print(f"❌ Error in WebSocket loop: {e}")
-        if websocket in clients:
-            clients.remove(websocket)
+        print(f"❌ Error in WebSocket loop for session {session_id}: {e}")
+        if websocket in session_clients[session_id]:
+            session_clients[session_id].remove(websocket)
 
 if __name__ == "__main__":
     import uvicorn

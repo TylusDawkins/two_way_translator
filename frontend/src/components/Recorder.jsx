@@ -41,6 +41,7 @@ export default function Recorder() {
     const formData = new FormData();
     formData.append("file", blob, `chunk-${Date.now()}.wav`);
     formData.append("speaker_id", speakerId);
+    formData.append("session_id", sessionId());
     formData.append("prim_lang", primLang());
     formData.append("fall_lang", fallLang());
     formData.append("recording_start_time", recordingStartTime);

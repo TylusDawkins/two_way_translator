@@ -30,6 +30,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 async def upload_audio(
     file: UploadFile = File(...),
     speaker_id: str = Form(...),
+    session_id: str = Form(...),
     timestamp: int = Form(...),
     prim_lang: str = Form(...),
     fall_lang: str = Form(...)
@@ -37,7 +38,7 @@ async def upload_audio(
     extension = os.path.splitext(file.filename)[-1].lower()
     unique_id = uuid.uuid4().hex
 
-    raw_filename = f"{speaker_id}_{timestamp}_{unique_id}{extension}"
+    raw_filename = f"{session_id}_{speaker_id}_{timestamp}_{unique_id}{extension}"
     raw_path = os.path.join(AUDIO_DIR, raw_filename)
 
     print(f"📥 Received file: {raw_filename}")
@@ -45,7 +46,7 @@ async def upload_audio(
         f.write(await file.read())
 
     # Convert to 16kHz WAV format
-    processed_filename = f"{speaker_id}_{timestamp}_{unique_id}_processed.wav"
+    processed_filename = f"{session_id}_{speaker_id}_{timestamp}_{unique_id}_processed.wav"
     processed_path = os.path.join(AUDIO_DIR, processed_filename)
     try:
         ffmpeg.input(raw_path).output(
@@ -59,9 +60,10 @@ async def upload_audio(
         print(f"❌ FFmpeg error:\n{e.stderr.decode()}")
         return JSONResponse({"error": "Audio conversion failed"}, status_code=500)
 
-    redis_client.rpush("translator:queue", json.dumps({
-        "filename": processed_filename,  # Just pass the filename instead of full path
+    redis_client.rpush(f"translator:queue:{session_id}", json.dumps({
+        "filename": processed_filename,
         "speaker_id": speaker_id,
+        "session_id": session_id,
         "timestamp": timestamp,
         "prim_lang": prim_lang,
         "fall_lang": fall_lang

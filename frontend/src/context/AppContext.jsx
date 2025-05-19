@@ -5,13 +5,15 @@ const AppContext = createContext();
 export function AppProvider(props) {
   const [primLang, setPrimLang] = createSignal('en');
   const [fallLang, setFallLang] = createSignal();
-  const [user, setUser] = createSignal({name: "Guest", id:1});
+  const [user, setUser] = createSignal({name: "Guest", id: 1});
+  const [sessionId, setSessionId] = createSignal(crypto.randomUUID());
 
   return (
     <AppContext.Provider value={{
       primLang, setPrimLang,
       fallLang, setFallLang,
       user, setUser,
+      sessionId, setSessionId,
     }}>
       {props.children}
     </AppContext.Provider>
