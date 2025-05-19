@@ -29,7 +29,6 @@ def ping():
     '''Returns a simple "pong" response.'''
     return {"status": "pong"}
 
-
 @app.get("/admin/clear-translations")
 async def clear_transcripts():
     '''Clears all translation data from Redis and notifies connected clients.'''
@@ -52,7 +51,6 @@ async def clear_transcripts():
         "deleted": deleted_keys,
         "count": len(deleted_keys)
     })
-
 
 @app.websocket("/ws/transcript/{session_id}")
 async def transcript_ws(websocket: WebSocket, session_id: str):
