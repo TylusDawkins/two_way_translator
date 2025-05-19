@@ -6,7 +6,6 @@ import redis
 import uuid
 import os
 import json
-
 import ffmpeg  # add this to your imports at the top
 
 
@@ -21,7 +20,10 @@ app.add_middleware(
 )
 
 redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
-AUDIO_DIR = "blerbs"
+
+# ─── Shared Volume Setup ─────────────────────────────────────────────────────
+SHARED_VOLUME_PATH = os.getenv("SHARED_VOLUME_PATH", "/shared_volume")
+AUDIO_DIR = os.path.join(SHARED_VOLUME_PATH, "blerbs")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 @app.post("/upload-audio/")
@@ -58,7 +60,7 @@ async def upload_audio(
         return JSONResponse({"error": "Audio conversion failed"}, status_code=500)
 
     redis_client.rpush("translator:queue", json.dumps({
-        "file_path": processed_path,
+        "filename": processed_filename,  # Just pass the filename instead of full path
         "speaker_id": speaker_id,
         "timestamp": timestamp,
         "prim_lang": prim_lang,

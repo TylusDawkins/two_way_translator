@@ -19,4 +19,4 @@ RUN pip install --upgrade pip \
 COPY ./src ./src
 
 # Default command (adjust as needed)
-CMD ["python", "src/transcriber_worker.py"]
+CMD ["uvicorn", "src.blerb_receiver:app", "--host", "0.0.0.0", "--port", "8005"]

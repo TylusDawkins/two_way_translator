@@ -31,6 +31,11 @@ print(f"⚙️  Using device: {DEVICE}")
 # ─── Redis Setup ─────────────────────────────────────────────────────────────
 redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
+# ─── Shared Volume Setup ─────────────────────────────────────────────────────
+SHARED_VOLUME_PATH = os.getenv("SHARED_VOLUME_PATH", "/shared_volume")
+AUDIO_DIR = os.path.join(SHARED_VOLUME_PATH, "blerbs")
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
 # ─── Whisper Model Setup ─────────────────────────────────────────────────────
 whisper_model = WhisperModel(
     model_size_or_path="large-v3",
@@ -78,11 +83,14 @@ try:
 
         payload = json.loads(item) 
         print(payload)
-        file_path = payload.get("file_path")
+        filename = payload.get("filename")
         speaker_id = payload.get("speaker_id")
         timestamp = payload.get("timestamp")
         prim_lang = payload.get("prim_lang")
         fall_lang = payload.get("fall_lang")
+
+        # Construct full path using shared volume
+        file_path = os.path.join(AUDIO_DIR, filename)
 
         print(f"\n🔄 Transcribing {file_path}")
         print(f"Timestamp: {timestamp}")
