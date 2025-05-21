@@ -15,8 +15,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install -r requirements.txt
 
-# Copy app source (adjust this based on your folder structure)
+# Copy app source and env file
 COPY ./src ./src
+COPY .env .
 
 # Default command (adjust as needed)
 CMD ["python", "src/transcriber_worker.py"]

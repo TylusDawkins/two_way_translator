@@ -9,6 +9,10 @@ import torch
 import redis
 from faster_whisper import WhisperModel
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ─── Graceful Shutdown Handler ───────────────────────────────────────────────
 def shutdown_handler():
@@ -28,8 +32,13 @@ print(f"Using CUDA Version: {torch.version.cuda}")
 print(f"GPU Name: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A'}")
 print(f"⚙️  Using device: {DEVICE}")
 
-# ─── Redis Setup ─────────────────────────────────────────────────────────────
-redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+# Redis connection with environment variables
+redis_client = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=6379,
+    db=0,
+    decode_responses=True
+)
 
 # ─── Shared Volume Setup ─────────────────────────────────────────────────────
 SHARED_VOLUME_PATH = os.getenv("SHARED_VOLUME_PATH", "/shared_volume")

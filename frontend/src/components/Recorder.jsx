@@ -12,7 +12,7 @@ export default function Recorder() {
   const [recording, setRecording] = createSignal(false);
   const RECORDING_DURATION = 5000;
   const OVERLAP_TIME = 100; // ms
-  const { speakerId, primLang, fallLang } = useApp();
+  const { speakerId, primLang, fallLang, sessionId } = useApp();
 
 
   let stream;
@@ -40,7 +40,7 @@ export default function Recorder() {
 
     const formData = new FormData();
     formData.append("file", blob, `chunk-${Date.now()}.wav`);
-    formData.append("speaker_id", speakerId);
+    formData.append("speaker_id", speakerId());
     formData.append("session_id", sessionId());
     formData.append("prim_lang", primLang());
     formData.append("fall_lang", fallLang());
@@ -52,10 +52,18 @@ export default function Recorder() {
         method: "POST",
         body: formData,
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${res.status}`);
+      }
+      
       const json = await res.json();
       console.log("✅ Chunk sent:", json);
     } catch (err) {
       console.error("❌ Failed to send chunk:", err);
+      // Optionally show error to user
+      // alert("Failed to send audio chunk. Please try again.");
     }
   };
   
