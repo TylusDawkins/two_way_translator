@@ -1,0 +1,50 @@
+# Node (Solid.js frontend)
+node_modules
+dist
+.vite
+.env
+.env.local
+
+# Python (Pipenv + virtual environments)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.DS_Store
+*.egg-info/
+*.log
+*.sqlite3
+*.db
+
+# Pipenv
+Pipfile.lock
+
+# VSCode settings (optional)
+.vscode/
+*.code-workspace
+
+# Model files / large assets
+models/
+hf_cache/
+*.gguf
+*.bin
+*.onnx
+
+# Redis / runtime artifacts
+*.rdb
+*.aof
+dump.rdb
+
+# Audio files
+blerbs/
+*.wav
+*.mp3
+*.flac
+
+# Other
+.env
+.DS_Store
+*.bak
+*.tmp
+*.swp
